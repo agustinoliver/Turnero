@@ -1,0 +1,103 @@
+package ar.edu.utn.turnero.turnero_backend.service.impl;
+
+import ar.edu.utn.turnero.turnero_backend.dto.request.CanchaRequest;
+import ar.edu.utn.turnero.turnero_backend.dto.response.CanchaResponse;
+import ar.edu.utn.turnero.turnero_backend.entity.Cancha;
+import ar.edu.utn.turnero.turnero_backend.entity.Predio;
+import ar.edu.utn.turnero.turnero_backend.enums.TipoCancha;
+import ar.edu.utn.turnero.turnero_backend.exception.ResourceNotFoundException;
+import ar.edu.utn.turnero.turnero_backend.repository.CanchaRepository;
+import ar.edu.utn.turnero.turnero_backend.service.CanchaService;
+import ar.edu.utn.turnero.turnero_backend.service.MapperService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CanchaServiceImpl implements CanchaService {
+
+    private final CanchaRepository canchaRepository;
+    private final PredioServiceImpl predioService;
+    private final MapperService mapper;
+
+    @Override
+    @Transactional
+    public CanchaResponse crearCancha(CanchaRequest request, String emailDueno) {
+        Predio predio = predioService.findPredioByDueno(emailDueno);
+
+        Cancha cancha = Cancha.builder()
+                .nombre(request.getNombre())
+                .tipo(request.getTipo())
+                .descripcion(request.getDescripcion())
+                .precioPorHora(request.getPrecioPorHora())
+                .predio(predio)
+                .activa(true)
+                .build();
+
+        return mapper.toCanchaResponse(canchaRepository.save(cancha));
+    }
+
+    @Override
+    @Transactional
+    public CanchaResponse actualizarCancha(Long canchaId, CanchaRequest request, String emailDueno) {
+        Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
+        cancha.setNombre(request.getNombre());
+        cancha.setTipo(request.getTipo());
+        cancha.setDescripcion(request.getDescripcion());
+        cancha.setPrecioPorHora(request.getPrecioPorHora());
+        return mapper.toCanchaResponse(canchaRepository.save(cancha));
+    }
+
+    @Override
+    @Transactional
+    public void eliminarCancha(Long canchaId, String emailDueno) {
+        Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
+        cancha.setActiva(false); // Soft delete
+        canchaRepository.save(cancha);
+        log.info("Cancha {} desactivada", canchaId);
+    }
+
+    @Override
+    public CanchaResponse obtenerPorId(Long id) {
+        return mapper.toCanchaResponse(canchaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cancha no encontrada: " + id)));
+    }
+
+    @Override
+    public List<CanchaResponse> listarPorPredio(Long predioId) {
+        return canchaRepository.findByPredioId(predioId).stream()
+                .map(mapper::toCanchaResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CanchaResponse> listarPorPredioYTipo(Long predioId, TipoCancha tipo) {
+        return canchaRepository.findByPredioIdAndTipoAndActiva(predioId, tipo, true).stream()
+                .map(mapper::toCanchaResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CanchaResponse> listarActivasPorPredio(Long predioId) {
+        return canchaRepository.findByPredioIdAndActiva(predioId, true).stream()
+                .map(mapper::toCanchaResponse).collect(Collectors.toList());
+    }
+
+    Cancha findById(Long id) {
+        return canchaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cancha no encontrada: " + id));
+    }
+
+    private Cancha findByIdAndVerifyDueno(Long canchaId, String emailDueno) {
+        Cancha cancha = findById(canchaId);
+        if (!cancha.getPredio().getDueno().getEmail().equals(emailDueno)) {
+            throw new ar.edu.utn.turnero.turnero_backend.exception.BadRequestException(
+                    "No tenés permisos sobre esta cancha");
+        }
+        return cancha;
+    }
+}

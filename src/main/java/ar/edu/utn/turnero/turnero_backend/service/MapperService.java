@@ -1,0 +1,106 @@
+package ar.edu.utn.turnero.turnero_backend.service;
+
+import ar.edu.utn.turnero.turnero_backend.dto.response.*;
+import ar.edu.utn.turnero.turnero_backend.entity.*;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Servicio centralizado de mapeo entre entidades y DTOs de respuesta.
+ */
+@Service
+public class MapperService {
+
+    public UsuarioResponse toUsuarioResponse(Usuario u) {
+        return UsuarioResponse.builder()
+                .id(u.getId())
+                .nombre(u.getNombre())
+                .apellido(u.getApellido())
+                .email(u.getEmail())
+                .telefono(u.getTelefono())
+                .rol(u.getRol())
+                .activo(u.isActivo())
+                .creadoEn(u.getCreadoEn())
+                .build();
+    }
+
+    public CanchaResponse toCanchaResponse(Cancha c) {
+        return CanchaResponse.builder()
+                .id(c.getId())
+                .nombre(c.getNombre())
+                .tipo(c.getTipo())
+                .descripcion(c.getDescripcion())
+                .precioPorHora(c.getPrecioPorHora())
+                .activa(c.isActiva())
+                .divisible(c.esDivisible())
+                .divisionesDisponibles(c.getDivisionesDisponibles())
+                .predioId(c.getPredio().getId())
+                .predioNombre(c.getPredio().getNombre())
+                .creadaEn(c.getCreadaEn())
+                .build();
+    }
+
+    public HorarioDisponibleResponse toHorarioResponse(HorarioDisponible h) {
+        return HorarioDisponibleResponse.builder()
+                .id(h.getId())
+                .diaSemana(h.getDiaSemana())
+                .horaInicio(h.getHoraInicio())
+                .horaFin(h.getHoraFin())
+                .predioId(h.getPredio().getId())
+                .build();
+    }
+
+    public DiaCerradoResponse toDiaCerradoResponse(DiaCerrado d) {
+        return DiaCerradoResponse.builder()
+                .id(d.getId())
+                .fecha(d.getFecha())
+                .motivo(d.getMotivo())
+                .predioId(d.getPredio().getId())
+                .build();
+    }
+
+    public ReservaResponse toReservaResponse(Reserva r) {
+        return ReservaResponse.builder()
+                .id(r.getId())
+                .fecha(r.getFecha())
+                .horaInicio(r.getHoraInicio())
+                .horaFin(r.getHoraFin())
+                .divisionType(r.getDivisionType())
+                .estado(r.getEstado())
+                .observaciones(r.getObservaciones())
+                .creadaEn(r.getCreadaEn())
+                .motivoCancelacion(r.getMotivoCancelacion())
+                .canchaId(r.getCancha().getId())
+                .canchaNombre(r.getCancha().getNombre())
+                .precioPorHora(r.getCancha().getPrecioPorHora())
+                .predioId(r.getCancha().getPredio().getId())
+                .predioNombre(r.getCancha().getPredio().getNombre())
+                .clienteId(r.getCliente().getId())
+                .clienteNombre(r.getCliente().getNombre())
+                .clienteApellido(r.getCliente().getApellido())
+                .clienteEmail(r.getCliente().getEmail())
+                .clienteTelefono(r.getCliente().getTelefono())
+                .build();
+    }
+
+    public PredioResponse toPredioResponse(Predio p) {
+        return PredioResponse.builder()
+                .id(p.getId())
+                .nombre(p.getNombre())
+                .direccion(p.getDireccion())
+                .telefono(p.getTelefono())
+                .descripcion(p.getDescripcion())
+                .activo(p.isActivo())
+                .creadoEn(p.getCreadoEn())
+                .dueno(p.getDueno() != null ? toUsuarioResponse(p.getDueno()) : null)
+                .canchas(p.getCanchas() != null
+                        ? p.getCanchas().stream().filter(Cancha::isActiva).map(this::toCanchaResponse).collect(Collectors.toList())
+                        : List.of())
+                .horariosDisponibles(p.getHorariosDisponibles() != null
+                        ? p.getHorariosDisponibles().stream().map(this::toHorarioResponse).collect(Collectors.toList())
+                        : List.of())
+                .build();
+    }
+}
