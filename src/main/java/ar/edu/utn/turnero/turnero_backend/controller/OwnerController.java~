@@ -32,7 +32,7 @@ public class OwnerController {
     private final ReservaService reservaService;
     private final UsuarioService usuarioService;
 
-    // ─── Mi Predio ────────────────────────────────────────────────────────────
+    // ─── Mi Predio ───────────────────────────────────────────────────────────────
 
     @PostMapping("/predio")
     @Operation(summary = "Crear mi predio")
@@ -58,7 +58,7 @@ public class OwnerController {
         return ResponseEntity.ok(predioService.actualizarPredio(predio.getId(), request, email));
     }
 
-    // ─── Canchas ──────────────────────────────────────────────────────────────
+    // ─── Canchas ─────────────────────────────────────────────────────────────────
 
     @PostMapping("/canchas")
     @Operation(summary = "Crear una cancha en mi predio")
@@ -71,8 +71,7 @@ public class OwnerController {
 
     @GetMapping("/canchas")
     @Operation(summary = "Listar canchas de mi predio")
-    public ResponseEntity<List<CanchaResponse>> listarCanchas(
-            @AuthenticationPrincipal String email) {
+    public ResponseEntity<List<CanchaResponse>> listarCanchas(@AuthenticationPrincipal String email) {
         PredioResponse predio = predioService.obtenerPorDueno(email);
         return ResponseEntity.ok(canchaService.listarActivasPorPredio(predio.getId()));
     }
@@ -84,7 +83,7 @@ public class OwnerController {
     }
 
     @PutMapping("/canchas/{id}")
-    @Operation(summary = "Actualizar datos base de una cancha")
+    @Operation(summary = "Actualizar una cancha")
     public ResponseEntity<CanchaResponse> actualizarCancha(
             @PathVariable Long id,
             @Valid @RequestBody CanchaRequest request,
@@ -101,68 +100,10 @@ public class OwnerController {
         return ResponseEntity.ok(MessageResponse.of("Cancha eliminada exitosamente"));
     }
 
-    // ─── Precios horarios ─────────────────────────────────────────────────────
-    //
-    //  Dos modalidades de precio (no excluyentes):
-    //
-    //  A) Precio base → precioPorHora en CanchaRequest. Aplica a todos los
-    //     slots que NO tengan un PrecioHorario definido.
-    //
-    //  B) Precios horarios → franjas con precio propio por día y hora.
-    //     Tienen prioridad sobre el precio base.
-    //
-    //  Ejemplo sábado escalonado:
-    //  PUT /api/owner/canchas/{id}/precios-horarios/configurar
-    //  [
-    //    { "diaSemana": "SABADO", "horaInicio": "09:00", "horaFin": "17:00", "precio": 5000 },
-    //    { "diaSemana": "SABADO", "horaInicio": "17:00", "horaFin": "19:00", "precio": 7000 },
-    //    { "diaSemana": "SABADO", "horaInicio": "19:00", "horaFin": "23:00", "precio": 10000 }
-    //  ]
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @PutMapping("/canchas/{id}/precios-horarios/configurar")
-    @Operation(
-            summary = "Reemplazar todos los precios horarios de una cancha",
-            description = "Reemplaza la configuración completa. Enviá [] para dejar solo precio base."
-    )
-    public ResponseEntity<List<PrecioHorarioResponse>> configurarPreciosHorarios(
-            @PathVariable Long id,
-            @Valid @RequestBody List<@Valid PrecioHorarioRequest> precios,
-            @AuthenticationPrincipal String email) {
-        return ResponseEntity.ok(canchaService.configurarPreciosHorarios(id, precios, email));
-    }
-
-    @PostMapping("/canchas/{id}/precios-horarios")
-    @Operation(summary = "Agregar un precio horario a una cancha")
-    public ResponseEntity<PrecioHorarioResponse> agregarPrecioHorario(
-            @PathVariable Long id,
-            @Valid @RequestBody PrecioHorarioRequest request,
-            @AuthenticationPrincipal String email) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(canchaService.agregarPrecioHorario(id, request, email));
-    }
-
-    @GetMapping("/canchas/{id}/precios-horarios")
-    @Operation(summary = "Ver precios horarios de una cancha")
-    public ResponseEntity<List<PrecioHorarioResponse>> listarPreciosHorarios(
-            @PathVariable Long id,
-            @AuthenticationPrincipal String email) {
-        return ResponseEntity.ok(canchaService.listarPreciosHorarios(id, email));
-    }
-
-    @DeleteMapping("/precios-horarios/{precioHorarioId}")
-    @Operation(summary = "Eliminar un precio horario puntual")
-    public ResponseEntity<MessageResponse> eliminarPrecioHorario(
-            @PathVariable Long precioHorarioId,
-            @AuthenticationPrincipal String email) {
-        canchaService.eliminarPrecioHorario(precioHorarioId, email);
-        return ResponseEntity.ok(MessageResponse.of("Precio horario eliminado exitosamente"));
-    }
-
-    // ─── Horarios y Días Cerrados ─────────────────────────────────────────────
+    // ─── Horarios y Días Cerrados ─────────────────────────────────────────────────
 
     @PostMapping("/horarios/configurar")
-    @Operation(summary = "Reemplazar todos los horarios del predio")
+    @Operation(summary = "Reemplazar todos los horarios del predio (configuración inicial o reset)")
     public ResponseEntity<List<HorarioDisponibleResponse>> configurarHorarios(
             @Valid @RequestBody List<@Valid HorarioDisponibleRequest> request,
             @AuthenticationPrincipal String email) {
@@ -221,7 +162,7 @@ public class OwnerController {
         return ResponseEntity.ok(MessageResponse.of("Día cerrado eliminado exitosamente"));
     }
 
-    // ─── Reservas ─────────────────────────────────────────────────────────────
+    // ─── Reservas ─────────────────────────────────────────────────────────────────
 
     @PostMapping("/reservas")
     @Operation(summary = "Crear reserva manual en nombre de un cliente")
@@ -278,7 +219,7 @@ public class OwnerController {
         return ResponseEntity.ok(MessageResponse.of("Reserva cancelada exitosamente"));
     }
 
-    // ─── Perfil ───────────────────────────────────────────────────────────────
+    // ─── Perfil y contraseña ──────────────────────────────────────────────────────
 
     @GetMapping("/perfil")
     @Operation(summary = "Ver mi perfil")
@@ -294,6 +235,8 @@ public class OwnerController {
         usuarioService.cambiarPassword(email, request);
         return ResponseEntity.ok(MessageResponse.of("Contraseña cambiada exitosamente"));
     }
+
+    // ─── Clientes del predio ──────────────────────────────────────────────────────
 
     @GetMapping("/clientes")
     @Operation(summary = "Listar clientes registrados (para reservas manuales)")

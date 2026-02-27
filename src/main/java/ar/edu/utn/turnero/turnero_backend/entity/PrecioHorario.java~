@@ -1,0 +1,33 @@
+package ar.edu.utn.turnero.turnero_backend.entity;
+
+import ar.edu.utn.turnero.turnero_backend.enums.DiaSemana;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalTime;
+
+/**
+ * Define un precio específico para una franja horaria de una cancha.
+ *
+ * Ejemplo: Cancha 1 - SABADO de 20:00 a 22:00 → $9000/hora
+ *
+ * Si no existe un PrecioHorario que cubra un slot, se usa el precioPorHora
+ * base definido en la entidad Cancha.
+ */
+@Entity
+@Table(
+        name = "precios_horarios",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"cancha_id", "dia_semana", "hora_inicio", "hora_fin"}
+        )
+)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PrecioHorario {
+}

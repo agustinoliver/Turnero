@@ -512,7 +512,7 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     private Cancha findCancha(Long id) {
-        return canchaRepository.findByIdWithPredio(id)
+        return canchaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cancha no encontrada: " + id));
     }
 

@@ -20,16 +20,7 @@ public class CanchaResponse {
     private String nombre;
     private TipoCancha tipo;
     private String descripcion;
-
-    /** Precio base. Se usa cuando no hay un precio horario configurado para el slot. */
     private BigDecimal precioPorHora;
-
-    /** true si la cancha tiene precios diferenciados por franja horaria. */
-    private boolean tienePreciosHorarios;
-
-    /** Lista de precios por franja (puede estar vacía si usa solo precio base). */
-    private List<PrecioHorarioResponse> preciosHorarios;
-
     private boolean activa;
     private boolean divisible;
     private List<DivisionType> divisionesDisponibles;

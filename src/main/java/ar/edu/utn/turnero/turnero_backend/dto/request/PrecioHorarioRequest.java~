@@ -1,0 +1,18 @@
+package ar.edu.utn.turnero.turnero_backend.dto.request;
+
+import ar.edu.utn.turnero.turnero_backend.enums.DiaSemana;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalTime;
+
+/**
+ * DTO para configurar un precio específico en una franja horaria de una cancha.
+ *
+ * Si no se define precio para un slot, se usa el precioPorHora base de la cancha.
+ */
+@Data
+public class PrecioHorarioRequest {
+}

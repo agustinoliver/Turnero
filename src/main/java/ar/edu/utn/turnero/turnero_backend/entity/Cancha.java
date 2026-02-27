@@ -17,7 +17,10 @@ import java.util.List;
 
 /**
  * Entidad que representa una cancha de fútbol dentro de un predio.
- * Contiene la lógica de divisibilidad según el tipo de cancha.
+ *
+ * El precio se puede definir de dos maneras (no excluyentes):
+ *   - precioPorHora: precio base, aplica cuando no hay un PrecioHorario definido para el slot.
+ *   - preciosHorarios: precios diferenciados por franja horaria y día. Tienen prioridad.
  */
 @Entity
 @Table(name = "canchas")
@@ -44,6 +47,10 @@ public class Cancha {
     @Column
     private String descripcion;
 
+    /**
+     * Precio base por hora. Se usa cuando no existe un PrecioHorario
+     * configurado para el slot horario solicitado.
+     */
     @NotNull(message = "El precio por hora es obligatorio")
     @Positive(message = "El precio debe ser positivo")
     @Column(nullable = false, precision = 10, scale = 2)
@@ -56,31 +63,32 @@ public class Cancha {
     @Column(updatable = false)
     private LocalDateTime creadaEn;
 
-    // Relación: una cancha pertenece a un predio
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "predio_id", nullable = false)
     private Predio predio;
 
-    // Relación: una cancha tiene muchas reservas
     @OneToMany(mappedBy = "cancha", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Reserva> reservas = new ArrayList<>();
+
+    /**
+     * Precios diferenciados por franja horaria.
+     * Si está vacía, se usa siempre precioPorHora.
+     */
+    @OneToMany(mappedBy = "cancha", cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY, orphanRemoval = true)
+    @Builder.Default
+    private List<PrecioHorario> preciosHorarios = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
         this.creadaEn = LocalDateTime.now();
     }
 
-    /**
-     * Determina si la cancha es divisible según su tipo.
-     */
     public boolean esDivisible() {
         return this.tipo == TipoCancha.NUEVE || this.tipo == TipoCancha.SIETE;
     }
 
-    /**
-     * Retorna las divisiones disponibles para la cancha según su tipo.
-     */
     public List<DivisionType> getDivisionesDisponibles() {
         return switch (this.tipo) {
             case NUEVE -> Arrays.asList(

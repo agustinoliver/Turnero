@@ -25,10 +25,7 @@ public class DisponibilidadResponse {
     private Long canchaId;
     private String canchaNombre;
     private TipoCancha tipo;
-
-    /** Precio base de la cancha (fallback cuando no hay precio horario). */
     private BigDecimal precioPorHora;
-
     private LocalDate fecha;
     private List<SlotDisponible> slotsDisponibles;
 
@@ -39,14 +36,6 @@ public class DisponibilidadResponse {
     public static class SlotDisponible {
         private LocalTime horaInicio;
         private LocalTime horaFin;
-
-        /**
-         * Precio efectivo para este slot.
-         * Si la cancha tiene un PrecioHorario que cubre este slot, se usa ese.
-         * De lo contrario, se usa el precio base de la cancha.
-         */
-        private BigDecimal precioEfectivo;
-
         private List<DivisionType> divisionesDisponibles;
     }
 }

@@ -28,16 +28,14 @@ import java.util.stream.Collectors;
 public class CanchaServiceImpl implements CanchaService {
 
     private final CanchaRepository canchaRepository;
-    private final PrecioHorarioRepository precioHorarioRepository;
     private final PredioServiceImpl predioService;
     private final MapperService mapper;
-
-    // ── CRUD de cancha ────────────────────────────────────────────────────────
 
     @Override
     @Transactional
     public CanchaResponse crearCancha(CanchaRequest request, String emailDueno) {
         Predio predio = predioService.findPredioByDueno(emailDueno);
+
         Cancha cancha = Cancha.builder()
                 .nombre(request.getNombre())
                 .tipo(request.getTipo())
@@ -46,6 +44,7 @@ public class CanchaServiceImpl implements CanchaService {
                 .predio(predio)
                 .activa(true)
                 .build();
+
         return mapper.toCanchaResponse(canchaRepository.save(cancha));
     }
 
@@ -64,7 +63,7 @@ public class CanchaServiceImpl implements CanchaService {
     @Transactional
     public void eliminarCancha(Long canchaId, String emailDueno) {
         Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
-        cancha.setActiva(false);
+        cancha.setActiva(false); // Soft delete
         canchaRepository.save(cancha);
         log.info("Cancha {} desactivada", canchaId);
     }
@@ -93,74 +92,6 @@ public class CanchaServiceImpl implements CanchaService {
                 .map(mapper::toCanchaResponse).collect(Collectors.toList());
     }
 
-    // ── Gestión de precios horarios ───────────────────────────────────────────
-
-    @Override
-    @Transactional
-    public List<PrecioHorarioResponse> configurarPreciosHorarios(
-            Long canchaId, List<PrecioHorarioRequest> precios, String emailDueno) {
-
-        Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
-        precios.forEach(this::validarFranjaHoraria);
-
-        precioHorarioRepository.deleteByCanchaId(canchaId);
-
-        List<PrecioHorario> nuevos = precios.stream()
-                .map(r -> PrecioHorario.builder()
-                        .cancha(cancha)
-                        .diaSemana(r.getDiaSemana())
-                        .horaInicio(r.getHoraInicio())
-                        .horaFin(r.getHoraFin())
-                        .precio(r.getPrecio())
-                        .build())
-                .collect(Collectors.toList());
-
-        List<PrecioHorario> saved = precioHorarioRepository.saveAll(nuevos);
-        log.info("Configurados {} precios horarios para cancha {}", saved.size(), canchaId);
-        return saved.stream().map(mapper::toPrecioHorarioResponse).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public PrecioHorarioResponse agregarPrecioHorario(
-            Long canchaId, PrecioHorarioRequest request, String emailDueno) {
-
-        Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
-        validarFranjaHoraria(request);
-
-        PrecioHorario precioHorario = PrecioHorario.builder()
-                .cancha(cancha)
-                .diaSemana(request.getDiaSemana())
-                .horaInicio(request.getHoraInicio())
-                .horaFin(request.getHoraFin())
-                .precio(request.getPrecio())
-                .build();
-
-        return mapper.toPrecioHorarioResponse(precioHorarioRepository.save(precioHorario));
-    }
-
-    @Override
-    @Transactional
-    public void eliminarPrecioHorario(Long precioHorarioId, String emailDueno) {
-        PrecioHorario precioHorario = precioHorarioRepository.findById(precioHorarioId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Precio horario no encontrado: " + precioHorarioId));
-        if (!precioHorario.getCancha().getPredio().getDueno().getEmail().equals(emailDueno)) {
-            throw new BadRequestException("No tenés permisos sobre este precio horario");
-        }
-        precioHorarioRepository.delete(precioHorario);
-        log.info("Precio horario {} eliminado", precioHorarioId);
-    }
-
-    @Override
-    public List<PrecioHorarioResponse> listarPreciosHorarios(Long canchaId, String emailDueno) {
-        Cancha cancha = findByIdAndVerifyDueno(canchaId, emailDueno);
-        return precioHorarioRepository.findByCanchaId(cancha.getId()).stream()
-                .map(mapper::toPrecioHorarioResponse).collect(Collectors.toList());
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     Cancha findById(Long id) {
         return canchaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cancha no encontrada: " + id));
@@ -169,16 +100,9 @@ public class CanchaServiceImpl implements CanchaService {
     private Cancha findByIdAndVerifyDueno(Long canchaId, String emailDueno) {
         Cancha cancha = findById(canchaId);
         if (!cancha.getPredio().getDueno().getEmail().equals(emailDueno)) {
-            throw new BadRequestException("No tenés permisos sobre esta cancha");
+            throw new ar.edu.utn.turnero.turnero_backend.exception.BadRequestException(
+                    "No tenés permisos sobre esta cancha");
         }
         return cancha;
-    }
-
-    private void validarFranjaHoraria(PrecioHorarioRequest r) {
-        if (!r.getHoraFin().isAfter(r.getHoraInicio())) {
-            throw new BadRequestException(
-                    "La hora de fin debe ser posterior a la de inicio: "
-                            + r.getHoraInicio() + " - " + r.getHoraFin());
-        }
     }
 }
