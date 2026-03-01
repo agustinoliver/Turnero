@@ -305,18 +305,27 @@ public class ReservaServiceImpl implements ReservaService {
     private List<DisponibilidadResponse.SlotDisponible> calcularSlotsDisponibles(
             Cancha cancha, LocalDate fecha) {
 
+        log.info(">>> calcularSlots START canchaId={} fecha={}", cancha.getId(), fecha);
+
         if (diaCerradoRepository.existsByPredioIdAndFecha(cancha.getPredio().getId(), fecha)) {
+            log.info(">>> dia cerrado, retornando vacio");
             return List.of();
         }
 
+        log.info(">>> buscando dia semana");
         DiaSemana dia = mapDayOfWeek(fecha.getDayOfWeek());
+
+        log.info(">>> buscando horarios para dia={}", dia);
         List<HorarioDisponible> horarios =
                 horarioRepository.findByPredioIdAndDiaSemana(cancha.getPredio().getId(), dia);
+        log.info(">>> horarios encontrados: {}", horarios.size());
 
         if (horarios.isEmpty()) return List.of();
 
+        log.info(">>> buscando reservas existentes");
         List<Reserva> reservasExistentes =
                 reservaRepository.findActivasByCanchaAndFecha(cancha.getId(), fecha);
+        log.info(">>> reservas existentes: {}", reservasExistentes.size());
 
         List<DisponibilidadResponse.SlotDisponible> slotsDisponibles = new ArrayList<>();
 
@@ -326,13 +335,16 @@ public class ReservaServiceImpl implements ReservaService {
                 final LocalTime slotInicio = cursor;
                 final LocalTime slotFin = cursor.plusHours(1);
 
+                log.info(">>> slot {}-{}", slotInicio, slotFin);
+
                 List<DivisionType> divisionesDisponibles =
                         calcularDivisionesDisponiblesParaSlot(cancha, slotInicio, slotFin,
                                 reservasExistentes);
 
                 if (!divisionesDisponibles.isEmpty()) {
+                    log.info(">>> resolviendo precio para slot {}-{}", slotInicio, slotFin);
                     BigDecimal precioEfectivo = resolverPrecioSlot(cancha, dia, slotInicio, slotFin);
-
+                    log.info(">>> precio resuelto: {}", precioEfectivo);
                     slotsDisponibles.add(DisponibilidadResponse.SlotDisponible.builder()
                             .horaInicio(slotInicio)
                             .horaFin(slotFin)
@@ -512,7 +524,7 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     private Cancha findCancha(Long id) {
-        return canchaRepository.findById(id)
+        return canchaRepository.findByIdWithPredio(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cancha no encontrada: " + id));
     }
 

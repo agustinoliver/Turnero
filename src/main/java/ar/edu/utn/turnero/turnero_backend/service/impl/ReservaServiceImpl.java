@@ -124,10 +124,6 @@ public class ReservaServiceImpl implements ReservaService {
         return mapper.toReservaResponse(saved);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // CANCELAR RESERVA
-    // ─────────────────────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public void cancelarReserva(Long reservaId, String emailUsuario,
@@ -163,13 +159,7 @@ public class ReservaServiceImpl implements ReservaService {
         } catch (Exception e) {
             log.warn("No se pudo enviar email de cancelación: {}", e.getMessage());
         }
-
-        log.info("Reserva {} cancelada por {}", reservaId, emailUsuario);
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // CONSULTAS
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public ReservaResponse obtenerPorId(Long id) {
@@ -199,7 +189,7 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TABLERO
+    // TABLERO (CORREGIDO LOOP INFINITO)
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
@@ -221,13 +211,22 @@ public class ReservaServiceImpl implements ReservaService {
                     List<ReservaTableroResponse.SlotHorario> slots = new ArrayList<>();
                     for (HorarioDisponible h : horarios) {
                         LocalTime cursor = h.getHoraInicio();
-                        while (cursor.plusHours(1).compareTo(h.getHoraFin()) <= 0) {
-                            final LocalTime slotInicio = cursor;
-                            final LocalTime slotFin = cursor.plusHours(1);
+                        LocalTime limiteFin = h.getHoraFin();
+
+                        // Loop seguro que detecta el fin de jornada (incluido medianoche)
+                        while (true) {
+                            LocalTime slotInicio = cursor;
+                            LocalTime slotFin = cursor.plusHours(1);
+
+                            // Si el slot excede el cierre (considerando medianoche como 24:00)
+                            if (!limiteFin.equals(LocalTime.MIDNIGHT)) {
+                                if (slotFin.isAfter(limiteFin) || (slotFin.equals(LocalTime.MIDNIGHT) && !limiteFin.equals(LocalTime.MIDNIGHT))) {
+                                    break;
+                                }
+                            }
 
                             Optional<Reserva> reservaSlot = reservasCancha.stream()
-                                    .filter(r -> r.getHoraInicio().isBefore(slotFin)
-                                            && r.getHoraFin().isAfter(slotInicio))
+                                    .filter(r -> hayConflictoTemporal(r.getHoraInicio(), r.getHoraFin(), slotInicio, slotFin))
                                     .findFirst();
 
                             boolean disponible = reservaSlot.isEmpty();
@@ -235,11 +234,12 @@ public class ReservaServiceImpl implements ReservaService {
                                     .horaInicio(slotInicio)
                                     .horaFin(slotFin)
                                     .disponible(disponible)
-                                    .reserva(disponible ? null
-                                            : mapper.toReservaResponse(reservaSlot.get()))
+                                    .reserva(disponible ? null : mapper.toReservaResponse(reservaSlot.get()))
                                     .build());
 
-                            cursor = cursor.plusHours(1);
+                            cursor = slotFin;
+                            // Si el cursor llegó al límite o dio la vuelta a medianoche, frenamos
+                            if (cursor.equals(limiteFin) || cursor.equals(LocalTime.MIDNIGHT)) break;
                         }
                     }
 
@@ -260,7 +260,7 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DISPONIBILIDAD
+    // DISPONIBILIDAD (CORREGIDO LOOP INFINITO)
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
@@ -298,10 +298,6 @@ public class ReservaServiceImpl implements ReservaService {
                 .collect(Collectors.toList());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // LÓGICA DE SLOTS Y PRECIO EFECTIVO
-    // ─────────────────────────────────────────────────────────────────────────
-
     private List<DisponibilidadResponse.SlotDisponible> calcularSlotsDisponibles(
             Cancha cancha, LocalDate fecha) {
 
@@ -322,17 +318,24 @@ public class ReservaServiceImpl implements ReservaService {
 
         for (HorarioDisponible horario : horarios) {
             LocalTime cursor = horario.getHoraInicio();
-            while (cursor.plusHours(1).compareTo(horario.getHoraFin()) <= 0) {
-                final LocalTime slotInicio = cursor;
-                final LocalTime slotFin = cursor.plusHours(1);
+            LocalTime limiteFin = horario.getHoraFin();
+
+            while (true) {
+                LocalTime slotInicio = cursor;
+                LocalTime slotFin = cursor.plusHours(1);
+
+                // Control de fin de jornada
+                if (!limiteFin.equals(LocalTime.MIDNIGHT)) {
+                    if (slotFin.isAfter(limiteFin) || (slotFin.equals(LocalTime.MIDNIGHT) && !limiteFin.equals(LocalTime.MIDNIGHT))) {
+                        break;
+                    }
+                }
 
                 List<DivisionType> divisionesDisponibles =
-                        calcularDivisionesDisponiblesParaSlot(cancha, slotInicio, slotFin,
-                                reservasExistentes);
+                        calcularDivisionesDisponiblesParaSlot(cancha, slotInicio, slotFin, reservasExistentes);
 
                 if (!divisionesDisponibles.isEmpty()) {
                     BigDecimal precioEfectivo = resolverPrecioSlot(cancha, dia, slotInicio, slotFin);
-
                     slotsDisponibles.add(DisponibilidadResponse.SlotDisponible.builder()
                             .horaInicio(slotInicio)
                             .horaFin(slotFin)
@@ -341,17 +344,14 @@ public class ReservaServiceImpl implements ReservaService {
                             .build());
                 }
 
-                cursor = cursor.plusHours(1);
+                cursor = slotFin;
+                if (cursor.equals(limiteFin) || cursor.equals(LocalTime.MIDNIGHT)) break;
             }
         }
 
         return slotsDisponibles;
     }
 
-    /**
-     * Resuelve el precio efectivo para un slot.
-     * Prioridad: PrecioHorario configurado > precioPorHora base de la cancha.
-     */
     private BigDecimal resolverPrecioSlot(Cancha cancha, DiaSemana dia,
                                           LocalTime horaInicio, LocalTime horaFin) {
         List<PrecioHorario> precios = precioHorarioRepository
@@ -360,27 +360,13 @@ public class ReservaServiceImpl implements ReservaService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // VALIDACIONES
+    // VALIDACIONES (CORREGIDAS PARA MEDIANOCHE)
     // ─────────────────────────────────────────────────────────────────────────
 
     private void validarHorarios(LocalTime inicio, LocalTime fin) {
-        if (!fin.isAfter(inicio)) {
+        // Permitir que el fin sea 00:00 (interpretado como el fin del día)
+        if (!fin.equals(LocalTime.MIDNIGHT) && !fin.isAfter(inicio)) {
             throw new BadRequestException("La hora de fin debe ser posterior a la hora de inicio");
-        }
-    }
-
-    private void validarDivisionParaTipoCancha(Cancha cancha, DivisionType division) {
-        if (division == null || division == DivisionType.WHOLE) return;
-        if (!cancha.getDivisionesDisponibles().contains(division)) {
-            throw new BadRequestException(
-                    "El tipo de división '" + division
-                            + "' no es válido para una cancha de tipo " + cancha.getTipo());
-        }
-    }
-
-    private void validarDiaAbierto(Predio predio, LocalDate fecha) {
-        if (diaCerradoRepository.existsByPredioIdAndFecha(predio.getId(), fecha)) {
-            throw new BadRequestException("El predio está cerrado el día: " + fecha);
         }
     }
 
@@ -394,13 +380,52 @@ public class ReservaServiceImpl implements ReservaService {
             throw new BadRequestException("El predio no está abierto el día: " + dia);
         }
 
-        boolean dentroDeHorario = horarios.stream().anyMatch(h ->
-                !horaInicio.isBefore(h.getHoraInicio()) && !horaFin.isAfter(h.getHoraFin()));
+        boolean dentroDeHorario = horarios.stream().anyMatch(h -> {
+            boolean inicioOk = !horaInicio.isBefore(h.getHoraInicio());
+            boolean finOk;
+
+            if (h.getHoraFin().equals(LocalTime.MIDNIGHT)) {
+                // Si el predio cierra a medianoche, cualquier horaFin es válida (ya que LocalTime.MAX es antes que medianoche)
+                finOk = true;
+            } else {
+                // Si el predio NO cierra a medianoche, pero el usuario pide hasta la medianoche, está fuera de rango
+                if (horaFin.equals(LocalTime.MIDNIGHT)) return false;
+                finOk = !horaFin.isAfter(h.getHoraFin());
+            }
+            return inicioOk && finOk;
+        });
 
         if (!dentroDeHorario) {
             throw new BadRequestException(
                     "El horario solicitado (" + horaInicio + " - " + horaFin
                             + ") está fuera del horario de apertura del predio");
+        }
+    }
+
+    private boolean hayConflictoTemporal(LocalTime inicio1, LocalTime fin1,
+                                         LocalTime inicio2, LocalTime fin2) {
+        // Manejo de medianoche en conflictos: si fin es 00:00, lo tratamos como "después de cualquier inicio"
+        boolean cruzado = inicio2.isBefore(fin1.equals(LocalTime.MIDNIGHT) ? LocalTime.MAX : fin1)
+                && (fin2.equals(LocalTime.MIDNIGHT) ? LocalTime.MAX : fin2).isAfter(inicio1);
+        return cruzado;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // EL RESTO SE MANTIENE IGUAL
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void validarDivisionParaTipoCancha(Cancha cancha, DivisionType division) {
+        if (division == null || division == DivisionType.WHOLE) return;
+        if (!cancha.getDivisionesDisponibles().contains(division)) {
+            throw new BadRequestException(
+                    "El tipo de división '" + division
+                            + "' no es válido para una cancha de tipo " + cancha.getTipo());
+        }
+    }
+
+    private void validarDiaAbierto(Predio predio, LocalDate fecha) {
+        if (diaCerradoRepository.existsByPredioIdAndFecha(predio.getId(), fecha)) {
+            throw new BadRequestException("El predio está cerrado el día: " + fecha);
         }
     }
 
@@ -436,43 +461,18 @@ public class ReservaServiceImpl implements ReservaService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private boolean hayConflictoTemporal(LocalTime inicio1, LocalTime fin1,
-                                         LocalTime inicio2, LocalTime fin2) {
-        return inicio2.isBefore(fin1) && fin2.isAfter(inicio1);
-    }
-
     private boolean hayConflictoDivision(DivisionType existente, DivisionType nueva,
                                          TipoCancha tipo) {
         if (existente == nueva) return true;
-
         if (tipo == TipoCancha.NUEVE) {
-            Set<DivisionType> sieteCinco =
-                    Set.of(DivisionType.SIETE_CINCO_A, DivisionType.SIETE_CINCO_B);
-            Set<DivisionType> tresCinco =
-                    Set.of(DivisionType.TRES_CINCO_A, DivisionType.TRES_CINCO_B,
-                            DivisionType.TRES_CINCO_C);
-
-            boolean exSiete = sieteCinco.contains(existente);
-            boolean nSiete  = sieteCinco.contains(nueva);
-            boolean exTres  = tresCinco.contains(existente);
-            boolean nTres   = tresCinco.contains(nueva);
-
-            if ((exSiete && nTres) || (exTres && nSiete)) return true;
-            if (exTres && nTres) return existente == nueva;
-            if (exSiete && nSiete) return existente == nueva;
+            Set<DivisionType> sieteCinco = Set.of(DivisionType.SIETE_CINCO_A, DivisionType.SIETE_CINCO_B);
+            Set<DivisionType> tresCinco = Set.of(DivisionType.TRES_CINCO_A, DivisionType.TRES_CINCO_B, DivisionType.TRES_CINCO_C);
+            if ((sieteCinco.contains(existente) && tresCinco.contains(nueva)) || (tresCinco.contains(existente) && sieteCinco.contains(nueva))) return true;
         }
-
         if (tipo == TipoCancha.SIETE) {
-            if (existente == DivisionType.DOS_CINCO_A && nueva == DivisionType.DOS_CINCO_B)
-                return false;
-            if (existente == DivisionType.DOS_CINCO_B && nueva == DivisionType.DOS_CINCO_A)
-                return false;
+            if (existente == DivisionType.DOS_CINCO_A && nueva == DivisionType.DOS_CINCO_B) return false;
+            if (existente == DivisionType.DOS_CINCO_B && nueva == DivisionType.DOS_CINCO_A) return false;
         }
-
         return false;
     }
 
