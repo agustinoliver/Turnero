@@ -56,6 +56,9 @@ public class Reserva {
     @Column
     private String observaciones;
 
+    @Column(name = "nombre_cliente_manual")
+    private String nombreClienteManual;
+
     @Column(updatable = false)
     private LocalDateTime creadaEn;
 
@@ -67,7 +70,7 @@ public class Reserva {
 
     // Relación: una reserva pertenece a una cancha
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cancha_id", nullable = false)
+    @JoinColumn(name = "cancha_id")
     private Cancha cancha;
 
     // Relación: una reserva pertenece a un cliente

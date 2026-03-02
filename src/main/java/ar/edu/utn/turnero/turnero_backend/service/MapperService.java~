@@ -26,13 +26,32 @@ public class MapperService {
                 .build();
     }
 
+    public PrecioHorarioResponse toPrecioHorarioResponse(PrecioHorario p) {
+        return PrecioHorarioResponse.builder()
+                .id(p.getId())
+                .canchaId(p.getCancha().getId())
+                .diaSemana(p.getDiaSemana())
+                .horaInicio(p.getHoraInicio())
+                .horaFin(p.getHoraFin())
+                .precio(p.getPrecio())
+                .build();
+    }
+
     public CanchaResponse toCanchaResponse(Cancha c) {
+        List<PrecioHorarioResponse> preciosHorarios = c.getPreciosHorarios() != null
+                ? c.getPreciosHorarios().stream()
+                .map(this::toPrecioHorarioResponse)
+                .collect(Collectors.toList())
+                : List.of();
+
         return CanchaResponse.builder()
                 .id(c.getId())
                 .nombre(c.getNombre())
                 .tipo(c.getTipo())
                 .descripcion(c.getDescripcion())
                 .precioPorHora(c.getPrecioPorHora())
+                .tienePreciosHorarios(!preciosHorarios.isEmpty())
+                .preciosHorarios(preciosHorarios)
                 .activa(c.isActiva())
                 .divisible(c.esDivisible())
                 .divisionesDisponibles(c.getDivisionesDisponibles())
@@ -96,10 +115,15 @@ public class MapperService {
                 .creadoEn(p.getCreadoEn())
                 .dueno(p.getDueno() != null ? toUsuarioResponse(p.getDueno()) : null)
                 .canchas(p.getCanchas() != null
-                        ? p.getCanchas().stream().filter(Cancha::isActiva).map(this::toCanchaResponse).collect(Collectors.toList())
+                        ? p.getCanchas().stream()
+                        .filter(Cancha::isActiva)
+                        .map(this::toCanchaResponse)
+                        .collect(Collectors.toList())
                         : List.of())
                 .horariosDisponibles(p.getHorariosDisponibles() != null
-                        ? p.getHorariosDisponibles().stream().map(this::toHorarioResponse).collect(Collectors.toList())
+                        ? p.getHorariosDisponibles().stream()
+                        .map(this::toHorarioResponse)
+                        .collect(Collectors.toList())
                         : List.of())
                 .build();
     }

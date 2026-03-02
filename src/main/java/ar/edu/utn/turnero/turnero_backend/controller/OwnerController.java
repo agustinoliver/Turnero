@@ -272,8 +272,10 @@ public class OwnerController {
     @Operation(summary = "Cancelar una reserva")
     public ResponseEntity<MessageResponse> cancelarReserva(
             @PathVariable Long id,
-            @RequestBody(required = false) CancelarReservaRequest request,
+            @RequestParam(required = false) String motivo,
             @AuthenticationPrincipal String email) {
+        CancelarReservaRequest request = new CancelarReservaRequest();
+        request.setMotivo(motivo);
         reservaService.cancelarReserva(id, email, request);
         return ResponseEntity.ok(MessageResponse.of("Reserva cancelada exitosamente"));
     }

@@ -56,13 +56,12 @@ public class ClientController {
     @Operation(summary = "Cancelar una de mis reservas")
     public ResponseEntity<MessageResponse> cancelarReserva(
             @PathVariable Long id,
-            @RequestParam(required = false) String motivo,
+            @RequestBody(required = false) CancelarReservaRequest request,
             @AuthenticationPrincipal String email) {
-        CancelarReservaRequest request = new CancelarReservaRequest();
-        request.setMotivo(motivo);
         reservaService.cancelarReserva(id, email, request);
         return ResponseEntity.ok(MessageResponse.of("Reserva cancelada exitosamente"));
     }
+
     // ─── Perfil ───────────────────────────────────────────────────────────────────
 
     @GetMapping("/perfil")

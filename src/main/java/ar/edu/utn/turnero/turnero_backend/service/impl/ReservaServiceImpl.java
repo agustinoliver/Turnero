@@ -92,9 +92,6 @@ public class ReservaServiceImpl implements ReservaService {
             throw new BadRequestException("La cancha no pertenece a tu predio");
         }
 
-        Usuario cliente = usuarioRepository.findById(request.getClienteId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Cliente no encontrado: " + request.getClienteId()));
         Usuario dueno = findUsuario(emailDueno);
 
         validarHorarios(request.getHoraInicio(), request.getHoraFin());
@@ -107,8 +104,9 @@ public class ReservaServiceImpl implements ReservaService {
 
         Reserva reserva = Reserva.builder()
                 .cancha(cancha)
-                .cliente(cliente)
+                .cliente(null)
                 .creadaPor(dueno)
+                .nombreClienteManual(request.getNombreCliente())
                 .fecha(request.getFecha())
                 .horaInicio(request.getHoraInicio())
                 .horaFin(request.getHoraFin())
@@ -119,7 +117,7 @@ public class ReservaServiceImpl implements ReservaService {
 
         Reserva saved = reservaRepository.save(reserva);
         log.info("Reserva manual creada por dueño {} para cliente {}: ID={}",
-                emailDueno, cliente.getEmail(), saved.getId());
+                emailDueno, request.getNombreCliente(), saved.getId());
         enviarEmailConfirmacion(saved);
         return mapper.toReservaResponse(saved);
     }
@@ -136,7 +134,8 @@ public class ReservaServiceImpl implements ReservaService {
         }
 
         boolean esDueno = reserva.getCancha().getPredio().getDueno().getEmail().equals(emailUsuario);
-        boolean esCliente = reserva.getCliente().getEmail().equals(emailUsuario);
+        boolean esCliente = reserva.getCliente() != null &&
+                reserva.getCliente().getEmail().equals(emailUsuario);
 
         if (!esDueno && !esCliente) {
             throw new BadRequestException("No tenés permisos para cancelar esta reserva");
@@ -148,14 +147,16 @@ public class ReservaServiceImpl implements ReservaService {
         reservaRepository.save(reserva);
 
         try {
-            emailService.enviarCancelacionReserva(
-                    reserva.getCliente().getEmail(),
-                    reserva.getCliente().getNombre(),
-                    reserva.getCancha().getNombre(),
-                    reserva.getFecha().toString(),
-                    reserva.getHoraInicio().toString(),
-                    reserva.getHoraFin().toString()
-            );
+            if (reserva.getCliente() != null) {
+                emailService.enviarCancelacionReserva(
+                        reserva.getCliente().getEmail(),
+                        reserva.getCliente().getNombre(),
+                        reserva.getCancha().getNombre(),
+                        reserva.getFecha().toString(),
+                        reserva.getHoraInicio().toString(),
+                        reserva.getHoraFin().toString()
+                );
+            }
         } catch (Exception e) {
             log.warn("No se pudo enviar email de cancelación: {}", e.getMessage());
         }
@@ -523,6 +524,7 @@ public class ReservaServiceImpl implements ReservaService {
 
     private void enviarEmailConfirmacion(Reserva reserva) {
         try {
+            if (reserva.getCliente() == null) return;
             emailService.enviarConfirmacionReserva(
                     reserva.getCliente().getEmail(),
                     reserva.getCliente().getNombre(),

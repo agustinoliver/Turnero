@@ -1,6 +1,6 @@
 #FileLock
-#Sun Mar 01 14:33:26 ART 2026
-server=localhost\:60248
-hostName=localhost
+#Mon Mar 02 16:03:25 ART 2026
+server=192.168.0.219\:52900
+hostName=Agustin.fibertel.com.ar
 method=file
-id=19caa764bd3c7bbbae82e26604beca6ee2e6614a332
+id=19cafef0b32d2946f9150baf05d6fa67000974c903b

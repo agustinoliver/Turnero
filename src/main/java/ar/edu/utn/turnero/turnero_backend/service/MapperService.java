@@ -96,11 +96,11 @@ public class MapperService {
                 .precioPorHora(r.getCancha().getPrecioPorHora())
                 .predioId(r.getCancha().getPredio().getId())
                 .predioNombre(r.getCancha().getPredio().getNombre())
-                .clienteId(r.getCliente().getId())
-                .clienteNombre(r.getCliente().getNombre())
-                .clienteApellido(r.getCliente().getApellido())
-                .clienteEmail(r.getCliente().getEmail())
-                .clienteTelefono(r.getCliente().getTelefono())
+                .clienteId(r.getCliente() != null ? r.getCliente().getId() : null)
+                .clienteNombre(r.getCliente() != null ? r.getCliente().getNombre() : r.getNombreClienteManual())
+                .clienteApellido(r.getCliente() != null ? r.getCliente().getApellido() : null)
+                .clienteEmail(r.getCliente() != null ? r.getCliente().getEmail() : null)
+                .clienteTelefono(r.getCliente() != null ? r.getCliente().getTelefono() : null)
                 .build();
     }
 

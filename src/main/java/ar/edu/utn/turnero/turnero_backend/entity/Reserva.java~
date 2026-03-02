@@ -3,6 +3,7 @@ package ar.edu.utn.turnero.turnero_backend.entity;
 import ar.edu.utn.turnero.turnero_backend.enums.DivisionType;
 import ar.edu.utn.turnero.turnero_backend.enums.EstadoReserva;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -54,6 +55,9 @@ public class Reserva {
 
     @Column
     private String observaciones;
+
+    @Column(name = "nombre_cliente_manual")
+    private String nombreClienteManual;
 
     @Column(updatable = false)
     private LocalDateTime creadaEn;
