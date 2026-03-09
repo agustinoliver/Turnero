@@ -75,7 +75,7 @@ public class Reserva {
 
     // Relación: una reserva pertenece a un cliente
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false)
+    @JoinColumn(name = "cliente_id")
     private Usuario cliente;
 
     // Relación: creada por (puede ser el dueño haciendo reserva manual, o el mismo cliente)
