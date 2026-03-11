@@ -1,7 +1,9 @@
 package ar.edu.utn.turnero.turnero_backend.controller;
 
 import ar.edu.utn.turnero.turnero_backend.dto.response.DisponibilidadResponse;
+import ar.edu.utn.turnero.turnero_backend.dto.response.PredioResponse;
 import ar.edu.utn.turnero.turnero_backend.enums.TipoCancha;
+import ar.edu.utn.turnero.turnero_backend.service.PredioService;
 import ar.edu.utn.turnero.turnero_backend.service.ReservaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +26,7 @@ import java.util.List;
 public class DisponibilidadController {
 
     private final ReservaService reservaService;
+    private final PredioService predioService;
 
     @GetMapping("/predio/{predioId}")
     @Operation(summary = "Buscar canchas disponibles en un predio para una fecha",
@@ -41,5 +44,11 @@ public class DisponibilidadController {
             @PathVariable Long canchaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
         return ResponseEntity.ok(reservaService.obtenerDisponibilidad(canchaId, fecha));
+    }
+
+    @GetMapping("/predios")
+    @Operation(summary = "Listar todos los predios activos")
+    public ResponseEntity<List<PredioResponse>> listarPredios() {
+        return ResponseEntity.ok(predioService.listarActivos());
     }
 }
